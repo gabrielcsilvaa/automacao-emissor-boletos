@@ -40,16 +40,12 @@ def create_browser(settings: Settings) -> BrowserSession:
         # "new" é o headless mais moderno do Chrome
         options.add_argument("--headless=new")
 
-    # ======= ARGUMENTOS ÚTEIS =======
-    # Ajuda estabilidade em ambientes corporativos e/ou Windows
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1366,768")
     options.add_argument("--start-maximized")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
 
-    # ======= DOWNLOADS =======
-    # Faz o Chrome baixar automaticamente sem perguntar.
     prefs = {
         "download.default_directory": str(Path(settings.DOWNLOADS_DIR).resolve()),
         "download.prompt_for_download": False,
@@ -70,13 +66,10 @@ def create_browser(settings: Settings) -> BrowserSession:
     except Exception:
         pass
 
-    # ======= TIMEOUTS =======
     driver.set_page_load_timeout(settings.NAV_TIMEOUT_MS / 1000)
 
     driver.implicitly_wait(0)
 
-    # ======= GARANTIR DOWNLOAD EM HEADLESS (fallback) =======
-    # Em alguns cenários, o headless precisa “forçar” comportamento de download via CDP.
     try:
         driver.execute_cdp_cmd(
             "Page.setDownloadBehavior",
@@ -84,10 +77,6 @@ def create_browser(settings: Settings) -> BrowserSession:
         )
     except Exception:
         pass
-
-    # ======= BLOQUEAR PRINT PREVIEW AUTOMÁTICO =======
-    # Alguns boletos chamam window.print() ao abrir e travam a UI.
-    # Aqui neutralizamos isso para permitir o printToPDF via CDP.
     try:
         driver.execute_cdp_cmd("Page.enable", {})
         driver.execute_cdp_cmd(
