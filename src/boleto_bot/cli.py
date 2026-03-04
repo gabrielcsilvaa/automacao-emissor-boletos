@@ -4,6 +4,7 @@ import argparse
 
 from boleto_bot.automation.flow_runner import FlowRunner, FlowRunnerOptions
 from boleto_bot.config.settings import Settings
+from boleto_bot.domain.enums import TipoContribuicao
 from boleto_bot.domain.validators import BatchValidationError, validar_e_montar_requests
 
 
@@ -40,6 +41,15 @@ def main() -> None:
     settings = Settings.from_env()
 
     requests_payload = [
+        {
+            "sindicato_key": "SINDGASTRO_CE",
+            "tipo_contribuicao": TipoContribuicao.CONTRIBUICAO_ASSOCIATIVA.value,
+            "cnpj": "06323147000107",
+            "senha": "06323147",
+            "valor": "152,25",
+            "ano": 2026,
+            "mes": 2,
+        },
     ]
 
     try:
