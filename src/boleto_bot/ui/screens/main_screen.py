@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import threading
 from datetime import datetime
+from pathlib import Path
 from tkinter import messagebox
 
 import customtkinter as ctk
@@ -23,7 +25,8 @@ class MainScreen(ctk.CTkFrame):
         self._sindicato_options = [(key, info.nome) for key, info in SINDICATOS.items()]
 
         self._build()
-        self._add_card()
+        if not self._load_last_session():
+            self._add_card()
 
     def _build(self) -> None:
         self.pack_propagate(False)
@@ -68,8 +71,11 @@ class MainScreen(ctk.CTkFrame):
         self.cards_frame.pack(fill="x", padx=24, pady=(0, 8))
         self._configure_scroll_speed()
 
+        self.actions_row = ctk.CTkFrame(self, fg_color="transparent")
+        self.actions_row.pack(fill="x", padx=24, pady=(0, 12))
+
         self.add_button = ctk.CTkButton(
-            self,
+            self.actions_row,
             text="+ Adicionar Boletos p/ Gerar em Lote",
             font=FONTS["body"],
             fg_color="transparent",
@@ -78,7 +84,25 @@ class MainScreen(ctk.CTkFrame):
             anchor="w",
             command=self._add_card,
         )
-        self.add_button.pack(fill="x", padx=24, pady=(0, 12))
+        self.add_button.pack(side="left", fill="x", expand=True)
+
+        self.save_session_var = ctk.BooleanVar(value=False)
+        self.save_session_checkbox = ctk.CTkCheckBox(
+            self.actions_row,
+            text="Salvar sessao",
+            font=FONTS["small"],
+            variable=self.save_session_var,
+            checkbox_width=20,
+            checkbox_height=20,
+            width=126,
+            fg_color="#2563EB",
+            hover_color="#1D4ED8",
+            border_color="#9CA3AF",
+            checkmark_color="#FFFFFF",
+            text_color=COLORS["text_primary"],
+            command=self._on_save_session_toggled,
+        )
+        self.save_session_checkbox.pack(side="right", padx=(10, 0))
 
         self.submit_button = ctk.CTkButton(
             self,
@@ -121,11 +145,11 @@ class MainScreen(ctk.CTkFrame):
             return tipos
         return listar_tipos_contribuicao()
 
-    def _add_card(self) -> None:
+    def _add_card(self, data: dict | None = None) -> None:
         if self._running:
             return
 
-        data = self._default_payload()
+        data = self._sanitize_card_data(data)
         card = BoletoCard(
             master=self.cards_frame,
             index=len(self._cards) + 1,
@@ -164,6 +188,7 @@ class MainScreen(ctk.CTkFrame):
         self._running = running
         controls_state = "disabled" if running else "normal"
         self.add_button.configure(state=controls_state)
+        self.save_session_checkbox.configure(state=controls_state)
         self.submit_button.configure(state=controls_state)
         self.submit_button.configure(text="Processando..." if running else "Emitir Boletos")
 
@@ -174,6 +199,120 @@ class MainScreen(ctk.CTkFrame):
 
     def _collect_payload(self) -> list[dict]:
         return [card.get_payload() for card in self._cards]
+
+    def _collect_session_payload(self) -> list[dict]:
+        session_payload: list[dict] = []
+        for card_payload in self._collect_payload():
+            session_payload.append(
+                self._sanitize_card_data(
+                    {
+                        "sindicato_key": card_payload.get("sindicato_key"),
+                        "tipo_contribuicao": card_payload.get("tipo_contribuicao"),
+                        "cnpj": card_payload.get("cnpj"),
+                        "senha": card_payload.get("senha"),
+                        "ano": card_payload.get("ano"),
+                        "mes": card_payload.get("mes"),
+                    }
+                )
+            )
+        return session_payload
+
+    def _sanitize_card_data(self, raw: dict | None) -> dict:
+        data = self._default_payload()
+        if not raw:
+            return data
+
+        available_sindicatos = {key for key, _label in self._sindicato_options}
+        sindicato_key = str(raw.get("sindicato_key", "")).strip()
+        if sindicato_key not in available_sindicatos:
+            sindicato_key = data["sindicato_key"]
+
+        tipo_options = self._tipos_for_sindicato(sindicato_key)
+        tipo = str(raw.get("tipo_contribuicao", "")).strip()
+        if tipo not in tipo_options and tipo_options:
+            tipo = tipo_options[0]
+
+        cnpj = str(raw.get("cnpj", "")).strip()
+        senha = str(raw.get("senha", "")).strip()
+
+        ano_default = int(data["ano"])
+        mes_default = int(data["mes"])
+        try:
+            ano = int(raw.get("ano", ano_default))
+        except (TypeError, ValueError):
+            ano = ano_default
+
+        try:
+            mes = int(raw.get("mes", mes_default))
+        except (TypeError, ValueError):
+            mes = mes_default
+
+        if mes < 1 or mes > 12:
+            mes = mes_default
+
+        return {
+            "sindicato_key": sindicato_key,
+            "tipo_contribuicao": tipo,
+            "cnpj": cnpj,
+            "senha": senha,
+            "valor": "",
+            "ano": ano,
+            "mes": mes,
+        }
+
+    def _session_file_path(self) -> Path:
+        storage_root = Settings.from_env().STORAGE_ROOT
+        return storage_root / ".ultima_sessao.json"
+
+    def _save_last_session(self) -> None:
+        if self._running:
+            return
+
+        try:
+            cards = self._collect_session_payload()
+            payload = {
+                "version": 1,
+                "saved_at": datetime.now().isoformat(timespec="seconds"),
+                "cards": cards,
+            }
+            session_file = self._session_file_path()
+            session_file.parent.mkdir(parents=True, exist_ok=True)
+            session_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception as exc:
+            self.status_label.configure(text="Falha ao salvar sessao.")
+            messagebox.showerror("Salvar sessao", str(exc))
+            return
+
+    def _on_save_session_toggled(self) -> None:
+        if not self.save_session_var.get():
+            return
+        self._save_last_session()
+
+    def _load_last_session(self) -> bool:
+        try:
+            session_file = self._session_file_path()
+            if not session_file.exists():
+                return False
+
+            raw_payload = json.loads(session_file.read_text(encoding="utf-8"))
+        except Exception:
+            return False
+
+        if not isinstance(raw_payload, dict):
+            return False
+
+        cards = raw_payload.get("cards")
+        if not isinstance(cards, list):
+            return False
+
+        loaded_count = 0
+        for card in cards:
+            if not isinstance(card, dict):
+                continue
+            self._add_card(card)
+            loaded_count += 1
+
+        return loaded_count > 0
 
     def _submit(self) -> None:
         if self._running:
