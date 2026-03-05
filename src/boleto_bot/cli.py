@@ -4,7 +4,7 @@ import argparse
 
 from boleto_bot.automation.flow_runner import FlowRunner, FlowRunnerOptions
 from boleto_bot.config.settings import Settings
-from boleto_bot.domain.enums import TipoContribuicao
+from boleto_bot.domain.enums import TipoContribuicao # quando for testar sem UI, pra montar o request manualmente
 from boleto_bot.domain.validators import BatchValidationError, validar_e_montar_requests
 
 
