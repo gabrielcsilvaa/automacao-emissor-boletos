@@ -15,7 +15,6 @@ class BrowserSession:
     settings: Settings
 
     def quit(self) -> None:
-        """Fecha o navegador e encerra o processo do driver."""
         try:
             self.driver.quit()
         except Exception:
@@ -34,8 +33,7 @@ def create_browser(settings: Settings) -> BrowserSession:
 
     options = Options()
 
-    # ======= HEADLESS =======
-    # Se for rodar sem janela (robô invisível), ativa o headless.
+    #headless caso eu for usar 
     if settings.HEADLESS:
         # "new" é o headless mais moderno do Chrome
         options.add_argument("--headless=new")

@@ -25,7 +25,7 @@ class Competencia:
 @dataclass(frozen=True)
 class BoletoRequest:
 
-    sindicato_key: str                 # ex: "SINDCOMERCIARIOS_CE"
+    sindicato_key: str               
     tipo_contribuicao: TipoContribuicao
     cnpj: str                          # pode vir com máscara; normaliza depois no validators
     senha: str                         # não logar isso

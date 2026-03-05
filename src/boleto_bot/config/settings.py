@@ -82,24 +82,12 @@ class Settings:
         )
         downloads_dir = Path(downloads_dir_str).expanduser().resolve()
 
-        # Logs desativados por padrão. Se quiser ativar:
-        # BOLETOBOT_LOG_DIR=C:/caminho/para/logs
-        log_dir_env = os.getenv("BOLETOBOT_LOG_DIR")
-        if log_dir_env is None:
-            log_dir = None
-        else:
-            raw = log_dir_env.strip()
-            if raw.lower() in {"", "none", "off", "false", "0"}:
-                log_dir = None
-            else:
-                log_dir = Path(raw).expanduser().resolve()
 
         settings = cls(
             BASE_DIR=base_dir,
             STORAGE_ROOT=storage_root,
             BOLETOS_DIR=boletos_dir,
             DOWNLOADS_DIR=downloads_dir,
-            LOG_DIR=log_dir,
             HEADLESS=_env_bool("BOLETOBOT_HEADLESS", False),
             NAV_TIMEOUT_MS=_env_int("BOLETOBOT_NAV_TIMEOUT_MS", 60_000),
             ACTION_TIMEOUT_MS=_env_int("BOLETOBOT_ACTION_TIMEOUT_MS", 30_000),

@@ -33,7 +33,6 @@ class StorageService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    # --------- Pastas ---------
 
     def empresa_dir(self, cnpj: str) -> Path:
         """

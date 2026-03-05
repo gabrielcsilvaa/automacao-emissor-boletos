@@ -40,7 +40,7 @@ def main() -> None:
 
     settings = Settings.from_env()
 
-    requests_payload = [
+    requests_payload = [ #caso eu queira testar para ver logs sem UI
     ]
 
     try:

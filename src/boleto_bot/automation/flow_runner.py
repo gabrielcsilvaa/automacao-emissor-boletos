@@ -27,9 +27,6 @@ from .errors import (
 
 @dataclass(frozen=True)
 class FlowRunnerOptions:
-    """
-    Opções do runner.
-    """
     download_timeout_s: int = 120  # quanto tempo esperar o PDF aparecer
     stable_for_s: float = 1.0      # por quanto tempo o arquivo tem que ficar estável (download finalizou)
     stop_after: str | None = None  # opção de debug: roda só até chegar nesse sindicato (ex.: "SINDCOMERCIARIOS_CE")
@@ -73,7 +70,7 @@ class FlowRunner:
             attempt += 1
             try:
                 self._run_one(req, report)
-                return  # sucesso
+                return  
 
             except AutomationError as e:
                 # erro "conhecido" da automação
@@ -82,7 +79,6 @@ class FlowRunner:
                     return
 
             except Exception as e:
-                # erro inesperado (bug/selenium/loucura)
                 if attempt >= max_attempts:
                     report.add_error(req, f"UNEXPECTED_ERROR: {e}")
                     return

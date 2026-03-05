@@ -37,10 +37,6 @@ class BatchValidationError(Exception):
         return "BatchValidationError(" + "; ".join(parts) + ")"
 
 
-# ---------------------------
-# Helpers gerais
-# ---------------------------
-
 def only_digits(text: str) -> str:
     return "".join(ch for ch in (text or "") if ch.isdigit())
 
@@ -48,10 +44,6 @@ def only_digits(text: str) -> str:
 def normalize_text(text: str) -> str:
     return (text or "").strip()
 
-
-# ---------------------------
-# CNPJ
-# ---------------------------
 
 def is_valid_cnpj(cnpj: str) -> bool:
     """
@@ -93,9 +85,6 @@ def _calc_cnpj_dv(base_12_or_13: str) -> str:
     return str(dv)
 
 
-# ---------------------------
-# Valor monetário (PT-BR e afins)
-# ---------------------------
 
 def parse_money(value: Union[str, int, float, Decimal]) -> Decimal:
     """
@@ -141,10 +130,6 @@ def parse_money(value: Union[str, int, float, Decimal]) -> Decimal:
     return dec.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-# ---------------------------
-# Mês / Ano
-# ---------------------------
-
 def parse_int(value: Any, field_name: str) -> int:
     if value is None:
         raise ValueError(f"{field_name} vazio.")
@@ -171,9 +156,6 @@ def validate_competencia(ano: Any, mes: Any) -> Competencia:
     return Competencia(ano=y, mes=m)
 
 
-# ---------------------------
-# Tipo de contribuição / Sindicato
-# ---------------------------
 
 def parse_tipo_contribuicao(value: Any) -> TipoContribuicao:
     """
@@ -201,9 +183,6 @@ def validate_sindicato_key(sindicato_key: Any) -> str:
     return key
 
 
-# ---------------------------
-# Validação completa: cria o BoletoRequest
-# ---------------------------
 
 def validar_e_montar_request(
     *,
@@ -364,9 +343,6 @@ def validar_e_montar_requests(
     return built
 
 
-# ---------------------------
-# Utilidade: normalizar CNPJ para salvar em pasta
-# ---------------------------
 
 def cnpj_digits_or_raise(cnpj: str) -> str:
     """

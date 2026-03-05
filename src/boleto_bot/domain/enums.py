@@ -29,8 +29,8 @@ SINDICATOS: Dict[str, SindicatoInfo] = {
         url_base="https://sweb.diretasistemas.com.br/prosindweb/index.php?sind=697",  
     ),
     # "SINDHOTELARIA_CE": SindicatoInfo(
-    #     key="SINDHOTELARIA_CE",
-    #     nome="SindHotelaria (CE)",
+    #     key="SINDHOTELARIA_CE",               # TALVEZ IREI ADICIONAR MAS PRECISO DA SENHA 
+    #     nome="SindHotelaria (CE)",              PARA TESTE E CNPJ QUE NAO TEM AINDA
     #     url_base="https://sweb.diretasistemas.com.br/prosindweb/index.php?sind=1790", 
     # ),
     "SINDGASTRO_CE": SindicatoInfo(

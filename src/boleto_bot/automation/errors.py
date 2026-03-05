@@ -26,7 +26,7 @@ class ElementNotFoundError(AutomationError):
     code: str = "ELEMENT_NOT_FOUND"
 
 
-# ===== Erros de autenticação =====
+# Erros de autenticação
 
 @dataclass(frozen=True)
 class LoginFailedError(AutomationError):
@@ -40,7 +40,7 @@ class LoginFailedError(AutomationError):
     code: str = "LOGIN_FAILED"
 
 
-# ===== Erros de negócio (fluxo do boleto) =====
+# Erros de negócio (fluxo do boleto)
 
 @dataclass(frozen=True)
 class ContributionGenerationError(AutomationError):
@@ -64,7 +64,7 @@ class BoletoNotAvailableError(AutomationError):
     code: str = "BOLETO_NOT_AVAILABLE"
 
 
-# ===== Erros de download/salvamento =====
+# Erros de download/salvamento
 
 @dataclass(frozen=True)
 class DownloadError(AutomationError):

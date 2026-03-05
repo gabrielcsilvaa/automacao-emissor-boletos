@@ -4,7 +4,7 @@ import time
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Set, Iterable
+from typing import Optional, Set
 
 from ..config.settings import Settings
 from ..services.storage_service import OutputTarget
@@ -84,7 +84,7 @@ class DownloadManager:
             if p.suffix.lower() in PARTIAL_EXTS:
                 continue
 
-            # queremos PDF
+            # quero PDF
             if p.suffix.lower() != ".pdf":
                 continue
 

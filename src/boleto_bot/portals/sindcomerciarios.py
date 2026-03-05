@@ -31,17 +31,6 @@ def _format_valor(valor) -> str:
 
 
 class SindComerciariosPortal(PortalBase):
-    """
-    Portal do SindComerciários (CE).
-
-    📌 IMPORTANTE:
-    - XPath/CSS selectors entram SOMENTE aqui dentro.
-    - O FlowRunner não sabe nada de XPath.
-    """
-
-    # =========================
-    # 1) Identidade do portal
-    # =========================
 
     @property       
     def key(self) -> str:
@@ -123,7 +112,7 @@ class SindComerciariosPortal(PortalBase):
 
     def obter_boleto(self) -> PortalResult:
         try:
-            old_handles = self._handles_before_boleto  # agora existe
+            old_handles = self._handles_before_boleto
 
             # tenta trocar pra nova aba e garante URL v?lida
             self._switch_to_boleto_context(old_handles, timeout_s=30)
@@ -145,8 +134,4 @@ class SindComerciariosPortal(PortalBase):
             )
 
     def close(self) -> None:
-        """
-        Se esse portal abrir popup/aba extra, você fecha aqui.
-        (por enquanto pode ficar vazio)
-        """
         return
