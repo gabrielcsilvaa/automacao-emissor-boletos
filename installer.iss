@@ -1,6 +1,6 @@
 [Setup]
 AppName=Robô Emitente de Boletos
-AppVersion=1.0.0
+AppVersion=1e0.0
 DefaultDirName={autopf}\Robo Emitente de Boletos
 DefaultGroupName=Robô Emitente de Boletos
 OutputDir=installer
