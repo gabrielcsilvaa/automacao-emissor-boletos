@@ -288,6 +288,12 @@ class MainScreen(ctk.CTkFrame):
             return
         self._save_last_session()
 
+    def persist_session_before_close(self) -> None:
+        """Persist the latest card state when the user closes the app."""
+        if not self.save_session_var.get():
+            return
+        self._save_last_session()
+
     def _load_last_session(self) -> bool:
         try:
             session_file = self._session_file_path()

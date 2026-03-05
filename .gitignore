@@ -1,0 +1,42 @@
+# Python cache/bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Tool caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.nox/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# PyInstaller
+*.spec
+
+# Installer outputs (Inno Setup / similares)
+Output/
+output/
+installer/Output/
+installer/output/
+
+# Logs / local env files
+*.log
+.env
+.env.*
+
+# IDE/editor
+.vscode/
+.idea/

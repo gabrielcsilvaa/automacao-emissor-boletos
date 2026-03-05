@@ -16,11 +16,17 @@ class BoletoBotApp(ctk.CTk):
         self.minsize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.maxsize(WINDOW_WIDTH, WINDOW_HEIGHT)
 
-        screen = MainScreen(self)
-        screen.pack(fill="both", expand=True)
+        self.screen = MainScreen(self)
+        self.screen.pack(fill="both", expand=True)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _on_close(self) -> None:
+        try:
+            self.screen.persist_session_before_close()
+        finally:
+            self.destroy()
 
 
 def run() -> None:
     app = BoletoBotApp()
     app.mainloop()
-

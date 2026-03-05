@@ -41,15 +41,6 @@ def main() -> None:
     settings = Settings.from_env()
 
     requests_payload = [
-        {
-            "sindicato_key": "SINDGASTRO_CE",
-            "tipo_contribuicao": TipoContribuicao.CONTRIBUICAO_ASSOCIATIVA.value,
-            "cnpj": "06323147000107",
-            "senha": "06323147",
-            "valor": "152,25",
-            "ano": 2026,
-            "mes": 2,
-        },
     ]
 
     try:
