@@ -383,11 +383,33 @@ class MainScreen(ctk.CTkFrame):
     def _run_automation(self, requests) -> None:
         try:
             settings = Settings.from_env()
-            options = FlowRunnerOptions(group_by_sindicato=True, pause_after=False)
+            options = FlowRunnerOptions(
+                group_by_sindicato=True,
+                pause_after=False,
+                manual_captcha_prompt=self._confirm_manual_captcha,
+            )
             report = FlowRunner(settings=settings, options=options).run(requests)
             self.after(0, lambda: self._on_automation_success(report))
         except Exception as exc:
             self.after(0, lambda: self._on_automation_error(exc))
+
+    def _confirm_manual_captcha(self, request) -> None:
+        confirmed = threading.Event()
+
+        def show_prompt() -> None:
+            self.status_label.configure(text="Aguardando verificacao manual no Chrome...")
+            messagebox.showinfo(
+                "Verificacao manual",
+                (
+                    "Se aparecer captcha/verificacao no site do Sindicomerciario, "
+                    "resolva no Chrome que foi aberto.\n\n"
+                    "Depois clique em OK para o robo continuar."
+                ),
+            )
+            confirmed.set()
+
+        self.after(0, show_prompt)
+        confirmed.wait()
 
     def _on_automation_success(self, report: ExecutionReport) -> None:
         self._set_running(False)

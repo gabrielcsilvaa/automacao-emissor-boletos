@@ -30,6 +30,7 @@ class BrowserSession:
 def create_browser(settings: Settings) -> BrowserSession:
    # garante que a pasta existe
     Path(settings.DOWNLOADS_DIR).mkdir(parents=True, exist_ok=True)
+    Path(settings.CHROME_PROFILE_DIR).mkdir(parents=True, exist_ok=True)
 
     options = Options()
 
@@ -43,6 +44,8 @@ def create_browser(settings: Settings) -> BrowserSession:
     options.add_argument("--start-maximized")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument(f"--user-data-dir={Path(settings.CHROME_PROFILE_DIR).resolve()}")
+    options.add_argument("--profile-directory=Default")
 
     prefs = {
         "download.default_directory": str(Path(settings.DOWNLOADS_DIR).resolve()),

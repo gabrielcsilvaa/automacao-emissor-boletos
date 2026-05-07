@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Callable, Iterable, Optional
 
 from ..config.settings import Settings
 from ..domain.models import BoletoRequest
@@ -33,6 +33,8 @@ class FlowRunnerOptions:
     
     group_by_sindicato: bool = True  # executa em blocos por sindicato (ordem da primeira aparicao)
     pause_after: bool = False
+    manual_captcha_keys: tuple[str, ...] = ("SINDCOMERCIARIOS_CE",) #adicionar depois o sindgastro
+    manual_captcha_prompt: Optional[Callable[[BoletoRequest], None]] = None
 
 
 class FlowRunner:
@@ -47,6 +49,7 @@ class FlowRunner:
         self.storage = storage or StorageService(settings)
         self.downloader = downloader or DownloadManager(settings)
         self.options = options or FlowRunnerOptions()
+        self._manual_captcha_confirmed: set[str] = set() # guarda quais sindicatos já tiveram o captcha manual confirmado, pra não pedir de novo a cada request
 
     def run(self, requests: Iterable[BoletoRequest]) -> ExecutionReport:
 
@@ -75,7 +78,10 @@ class FlowRunner:
             except AutomationError as e:
                 # erro "conhecido" da automação
                 if attempt >= max_attempts or not self._should_retry(e):
-                    report.add_error(req, f"{e.code}: {e.message}")
+                    message = f"{e.code}: {e.message}"
+                    if e.details:
+                        message = f"{message}\n{e.details}"
+                    report.add_error(req, message)
                     return
 
             except Exception as e:
@@ -104,6 +110,7 @@ class FlowRunner:
 
             try:
                 portal.open_home()
+                self._wait_for_manual_captcha_if_needed(req)
                 if self.options.stop_after == "open_home":
                     if self.options.pause_after:    
                         input("\n✅ Parei após open_home(). Enter pra fechar...")
@@ -144,6 +151,22 @@ class FlowRunner:
                     portal.close()
                 except Exception:
                     pass
+
+    def _wait_for_manual_captcha_if_needed(self, req: BoletoRequest) -> None:
+        if req.sindicato_key not in self.options.manual_captcha_keys:
+            return
+        if req.sindicato_key in self._manual_captcha_confirmed:
+            return
+
+        if self.options.manual_captcha_prompt is not None:
+            self.options.manual_captcha_prompt(req)
+        else:
+            input(
+                "\nSe aparecer verificacao/captcha no Sindicomerciario, resolva no Chrome aberto. "
+                "Depois pressione Enter aqui para o robo continuar..."
+            )
+
+        self._manual_captcha_confirmed.add(req.sindicato_key)
 
     def _resolve_and_save_pdf(self, result: PortalResult, snap, target) -> Path:
         if not result.sucesso:

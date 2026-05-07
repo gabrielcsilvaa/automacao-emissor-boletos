@@ -56,6 +56,7 @@ class Settings:
     STORAGE_ROOT: Path
     BOLETOS_DIR: Path
     DOWNLOADS_DIR: Path
+    CHROME_PROFILE_DIR: Path
     LOG_DIR: Optional[Path]
 
     HEADLESS: bool
@@ -81,6 +82,11 @@ class Settings:
             str(_default_downloads_tmp_dir("BoletoBot")),
         )
         downloads_dir = Path(downloads_dir_str).expanduser().resolve()
+        chrome_profile_dir_str = _env_str(
+            "BOLETOBOT_CHROME_PROFILE_DIR",
+            str(storage_root / ".chrome_profile"),
+        )
+        chrome_profile_dir = Path(chrome_profile_dir_str).expanduser().resolve()
 
         # Logs desativados por padrão. Se quiser ativar:
         # BOLETOBOT_LOG_DIR=C:/caminho/para/logs
@@ -99,6 +105,7 @@ class Settings:
             STORAGE_ROOT=storage_root,
             BOLETOS_DIR=boletos_dir,
             DOWNLOADS_DIR=downloads_dir,
+            CHROME_PROFILE_DIR=chrome_profile_dir,
             LOG_DIR=log_dir,
             HEADLESS=_env_bool("BOLETOBOT_HEADLESS", False),
             NAV_TIMEOUT_MS=_env_int("BOLETOBOT_NAV_TIMEOUT_MS", 60_000),
@@ -113,5 +120,6 @@ class Settings:
     def ensure_dirs(self) -> None:
         self.STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
         self.DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
+        self.CHROME_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
         if self.LOG_DIR is not None:
             self.LOG_DIR.mkdir(parents=True, exist_ok=True)
