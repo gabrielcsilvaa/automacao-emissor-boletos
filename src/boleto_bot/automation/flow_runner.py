@@ -33,7 +33,7 @@ class FlowRunnerOptions:
     
     group_by_sindicato: bool = True  # executa em blocos por sindicato (ordem da primeira aparicao)
     pause_after: bool = False
-    manual_captcha_keys: tuple[str, ...] = ("SINDCOMERCIARIOS_CE",) #adicionar depois o sindgastro
+    manual_captcha_keys: tuple[str, ...] = ("SINDCOMERCIARIOS_CE", "SINDGASTRO_CE") #adicionar depois o sindgastro
     manual_captcha_prompt: Optional[Callable[[BoletoRequest], None]] = None
 
 

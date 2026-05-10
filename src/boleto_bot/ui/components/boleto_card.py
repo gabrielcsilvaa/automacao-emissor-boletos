@@ -76,6 +76,22 @@ class BoletoCard(ctk.CTkFrame):
         self.header = ctk.CTkFrame(self, fg_color="transparent")
         self.header.grid(row=0, column=0, columnspan=2, sticky="ew", padx=16, pady=(14, 10))
         self.header.grid_columnconfigure(0, weight=1)
+        self.header.grid_columnconfigure(1, weight=0)
+        self.header.grid_columnconfigure(2, weight=0)
+
+        self.selected_var = ctk.BooleanVar(value=bool(default_data.get("selected", True)))
+        self.selected_checkbox = ctk.CTkCheckBox(
+            self.header,
+            text="",
+            variable=self.selected_var,
+            width=26,
+            checkbox_width=20,
+            checkbox_height=20,
+            fg_color=COLORS["button"],
+            hover_color=COLORS["button_hover"],
+            border_color=COLORS["card_border"],
+        )
+        self.selected_checkbox.grid(row=0, column=0, sticky="w")
 
         self.title_label = ctk.CTkLabel(
             self.header,
@@ -83,7 +99,7 @@ class BoletoCard(ctk.CTkFrame):
             font=FONTS["label"],
             text_color=COLORS["text_primary"],
         )
-        self.title_label.grid(row=0, column=0, sticky="w")
+        self.title_label.grid(row=0, column=0, sticky="w", padx=(28, 0))
 
         self.remove_button = ctk.CTkButton(
             self.header,
@@ -96,7 +112,7 @@ class BoletoCard(ctk.CTkFrame):
             font=FONTS["small"],
             command=self._remove_clicked,
         )
-        self.remove_button.grid(row=0, column=1, sticky="e")
+        self.remove_button.grid(row=0, column=2, sticky="e")
 
         sindicato_label = ctk.CTkLabel(self, text="Sindicato:", font=FONTS["body"], text_color=COLORS["text_secondary"])
         sindicato_label.grid(row=1, column=0, padx=(16, 8), sticky="w")
@@ -268,6 +284,12 @@ class BoletoCard(ctk.CTkFrame):
             "mes": self.mes_var.get(),
         }
 
+    def is_selected(self) -> bool:
+        return bool(self.selected_var.get())
+
+    def set_selected(self, selected: bool) -> None:
+        self.selected_var.set(bool(selected))
+
     def set_interaction_enabled(self, enabled: bool) -> None:
         state = "normal" if enabled else "disabled"
         self.sindicato_menu.configure(state=state)
@@ -277,6 +299,7 @@ class BoletoCard(ctk.CTkFrame):
         self.valor_entry.configure(state=state)
         self.ano_entry.configure(state=state)
         self.mes_menu.configure(state=state)
+        self.selected_checkbox.configure(state=state)
         self.remove_button.configure(state=state if enabled else "disabled")
         if not enabled:
             self._animate_select_to(self.sindicato_menu, 0.0)

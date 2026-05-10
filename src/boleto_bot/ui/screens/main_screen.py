@@ -12,6 +12,7 @@ from ...automation.flow_runner import FlowRunner, FlowRunnerOptions
 from ...config.settings import Settings
 from ...domain.enums import SINDICATOS, listar_tipos_contribuicao, listar_tipos_por_sindicato
 from ...domain.validators import BatchValidationError, validar_e_montar_requests
+from ...services.history_service import BoletoHistoryService
 from ...services.report_service import ExecutionReport
 from ..components import BoletoCard
 from ..theme import COLORS, FONTS
@@ -23,9 +24,13 @@ class MainScreen(ctk.CTkFrame):
         self._cards: list[BoletoCard] = []
         self._running = False
         self._sindicato_options = [(key, info.nome) for key, info in SINDICATOS.items()]
+        self._settings = Settings.from_env()
+        self._history_service = BoletoHistoryService(self._settings)
 
         self._build()
-        if not self._load_last_session():
+        if not self._load_history():
+            self._load_last_session()
+        if not self._cards:
             self._add_card()
 
     def _build(self) -> None:
@@ -59,6 +64,16 @@ class MainScreen(ctk.CTkFrame):
         )
         subtitle.pack(anchor="w", padx=24, pady=(0, 10))
 
+        self.search_var = ctk.StringVar(value="")
+        self.search_var.trace_add("write", lambda *_args: self._apply_search_filter())
+        self.search_entry = ctk.CTkEntry(
+            self,
+            textvariable=self.search_var,
+            font=FONTS["small"],
+            placeholder_text="Pesquisar por CNPJ no historico",
+        )
+        self.search_entry.pack(fill="x", padx=24, pady=(0, 10))
+
         self.cards_frame = ctk.CTkScrollableFrame(
             self,
             width=552,
@@ -86,7 +101,25 @@ class MainScreen(ctk.CTkFrame):
         )
         self.add_button.pack(side="left", fill="x", expand=True)
 
-        self.save_session_var = ctk.BooleanVar(value=False)
+        self.select_all_var = ctk.BooleanVar(value=True)
+        self.select_all_checkbox = ctk.CTkCheckBox(
+            self.actions_row,
+            text="Selecionar todos",
+            font=FONTS["small"],
+            variable=self.select_all_var,
+            checkbox_width=20,
+            checkbox_height=20,
+            width=124,
+            fg_color="#2563EB",
+            hover_color="#1D4ED8",
+            border_color="#9CA3AF",
+            checkmark_color="#FFFFFF",
+            text_color=COLORS["text_primary"],
+            command=self._set_all_selected,
+        )
+        self.select_all_checkbox.pack(side="right", padx=(10, 0))
+
+        self.save_session_var = ctk.BooleanVar(value=True)
         self.save_session_checkbox = ctk.CTkCheckBox(
             self.actions_row,
             text="Salvar sessao",
@@ -150,6 +183,7 @@ class MainScreen(ctk.CTkFrame):
             return
 
         data = self._sanitize_card_data(data)
+        data.setdefault("selected", bool(self.select_all_var.get()))
         card = BoletoCard(
             master=self.cards_frame,
             index=len(self._cards) + 1,
@@ -163,6 +197,7 @@ class MainScreen(ctk.CTkFrame):
         self._bind_mouse_wheel_recursive(card)
         self._cards.append(card)
         self._refresh_cards()
+        self._apply_search_filter()
 
     def _remove_card(self, card: BoletoCard) -> None:
         if self._running or len(self._cards) <= 1:
@@ -188,6 +223,8 @@ class MainScreen(ctk.CTkFrame):
         self._running = running
         controls_state = "disabled" if running else "normal"
         self.add_button.configure(state=controls_state)
+        self.search_entry.configure(state=controls_state)
+        self.select_all_checkbox.configure(state=controls_state)
         self.save_session_checkbox.configure(state=controls_state)
         self.submit_button.configure(state=controls_state)
         self.submit_button.configure(text="Processando..." if running else "Emitir Boletos")
@@ -198,11 +235,41 @@ class MainScreen(ctk.CTkFrame):
         self._refresh_cards()
 
     def _collect_payload(self) -> list[dict]:
+        return [card.get_payload() for card in self._cards if card.is_selected()]
+
+    def _collect_all_payload(self) -> list[dict]:
         return [card.get_payload() for card in self._cards]
+
+    def _set_all_selected(self) -> None:
+        selected = bool(self.select_all_var.get())
+        for card in self._cards:
+            card.set_selected(selected)
+
+    def _apply_search_filter(self) -> None:
+        query = "".join(ch for ch in self.search_var.get() if ch.isdigit())
+        text_query = self.search_var.get().strip().lower()
+
+        for card in self._cards:
+            payload = card.get_payload()
+            cnpj_digits = "".join(ch for ch in str(payload.get("cnpj", "")) if ch.isdigit())
+            cnpj_text = str(payload.get("cnpj", "")).lower()
+            should_show = not query and not text_query
+            if query:
+                should_show = query in cnpj_digits
+            elif text_query:
+                should_show = text_query in cnpj_text
+
+            if should_show:
+                if not card.winfo_manager():
+                    card.pack(fill="x", pady=(0, 10))
+            else:
+                card.pack_forget()
+
+        self._refresh_cards()
 
     def _collect_session_payload(self) -> list[dict]:
         session_payload: list[dict] = []
-        for card_payload in self._collect_payload():
+        for card_payload in self._collect_all_payload():
             session_payload.append(
                 self._sanitize_card_data(
                     {
@@ -210,6 +277,7 @@ class MainScreen(ctk.CTkFrame):
                         "tipo_contribuicao": card_payload.get("tipo_contribuicao"),
                         "cnpj": card_payload.get("cnpj"),
                         "senha": card_payload.get("senha"),
+                        "valor": card_payload.get("valor"),
                         "ano": card_payload.get("ano"),
                         "mes": card_payload.get("mes"),
                     }
@@ -234,6 +302,7 @@ class MainScreen(ctk.CTkFrame):
 
         cnpj = str(raw.get("cnpj", "")).strip()
         senha = str(raw.get("senha", "")).strip()
+        valor = str(raw.get("valor", "")).strip()
 
         ano_default = int(data["ano"])
         mes_default = int(data["mes"])
@@ -255,14 +324,14 @@ class MainScreen(ctk.CTkFrame):
             "tipo_contribuicao": tipo,
             "cnpj": cnpj,
             "senha": senha,
-            "valor": "",
+            "valor": valor,
             "ano": ano,
             "mes": mes,
+            "selected": bool(raw.get("selected", True)),
         }
 
     def _session_file_path(self) -> Path:
-        storage_root = Settings.from_env().STORAGE_ROOT
-        return storage_root / ".ultima_sessao.json"
+        return self._settings.STORAGE_ROOT / ".ultima_sessao.json"
 
     def _save_last_session(self) -> None:
         if self._running:
@@ -320,17 +389,43 @@ class MainScreen(ctk.CTkFrame):
 
         return loaded_count > 0
 
+    def _load_history(self) -> bool:
+        history = self._history_service.load()
+        if not history:
+            return False
+
+        loaded_count = 0
+        for payload in history:
+            data = dict(payload)
+            data["selected"] = True
+            self._add_card(data)
+            loaded_count += 1
+
+        if loaded_count:
+            self.status_label.configure(text=f"Historico carregado: {loaded_count} boleto(s).")
+        return loaded_count > 0
+
     def _submit(self) -> None:
         if self._running:
             return
 
         payload = self._collect_payload()
+        if not payload:
+            self.status_label.configure(text="Selecione pelo menos um boleto.")
+            messagebox.showwarning("Selecao", "Selecione pelo menos um boleto para emitir.")
+            return
+
         try:
             requests = validar_e_montar_requests(payload, ordenar_por_sindicato=True)
         except BatchValidationError as exc:
             self.status_label.configure(text="Existem erros de validação.")
             messagebox.showerror("Validação", self._format_batch_errors(exc))
             return
+
+        if self.save_session_var.get():
+            total = self._history_service.save_many(payload)
+            self._save_last_session()
+            self.status_label.configure(text=f"Sessao salva. Historico: {total} boleto(s).")
 
         self.status_label.configure(text="Iniciando emissão...")
         self._set_running(True)
@@ -382,13 +477,12 @@ class MainScreen(ctk.CTkFrame):
 
     def _run_automation(self, requests) -> None:
         try:
-            settings = Settings.from_env()
             options = FlowRunnerOptions(
                 group_by_sindicato=True,
                 pause_after=False,
                 manual_captcha_prompt=self._confirm_manual_captcha,
             )
-            report = FlowRunner(settings=settings, options=options).run(requests)
+            report = FlowRunner(settings=self._settings, options=options).run(requests)
             self.after(0, lambda: self._on_automation_success(report))
         except Exception as exc:
             self.after(0, lambda: self._on_automation_error(exc))

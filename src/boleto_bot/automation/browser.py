@@ -62,6 +62,8 @@ def create_browser(settings: Settings) -> BrowserSession:
 
     driver = webdriver.Chrome(options=options)
     # Garante janela maximizada em modo visível
+
+    
     try:
         driver.maximize_window()
     except Exception:
