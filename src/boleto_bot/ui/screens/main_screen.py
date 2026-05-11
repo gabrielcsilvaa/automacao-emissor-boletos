@@ -26,6 +26,9 @@ class MainScreen(ctk.CTkFrame):
         self._sindicato_options = [(key, info.nome) for key, info in SINDICATOS.items()]
         self._settings = Settings.from_env()
         self._history_service = BoletoHistoryService(self._settings)
+        self._history_frame = None
+        self._showing_history = False
+        self._pending_history_payloads: list[dict] = []
 
         self._build()
         if not self._load_history():
@@ -36,16 +39,40 @@ class MainScreen(ctk.CTkFrame):
     def _build(self) -> None:
         self.pack_propagate(False)
 
+        title_row = ctk.CTkFrame(self, fg_color="transparent")
+        title_row.pack(fill="x", padx=24, pady=(26, 8))
+        title_row.grid_columnconfigure(0, weight=0, minsize=48)
+        title_row.grid_columnconfigure(1, weight=1)
+        title_row.grid_columnconfigure(2, weight=0, minsize=48)
+
+        self.history_button = ctk.CTkButton(
+            title_row,
+            text="☰",
+            width=40,
+            height=36,
+            font=FONTS["body"],
+            fg_color="transparent",
+            hover_color="#E5E7EB",
+            text_color=COLORS["text_primary"],
+            command=self._toggle_history_view,
+        )
+        self.history_button.grid(row=0, column=0, sticky="w")
+
         title = ctk.CTkLabel(
-            self,
+            title_row,
             text="Robô Emitente de Boletos",
             font=FONTS["title"],
             text_color=COLORS["text_primary"],
         )
-        title.pack(anchor="center", pady=(26, 8))
+        title.grid(row=0, column=1)
+
+        self.master.bind("<Escape>", lambda _event: self._hide_history_view())
+
+        self.content_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.content_frame.pack(fill="both", expand=True)
 
         description = ctk.CTkLabel(
-            self,
+            self.content_frame,
             text=(
                 "Essa ferramenta foi desenvolvida para facilitar a emissão de boletos por\n"
                 "sindicato, podendo ser usado para emissões individuais ou em lotes."
@@ -57,7 +84,7 @@ class MainScreen(ctk.CTkFrame):
         description.pack(anchor="w", padx=24, pady=(0, 12))
 
         subtitle = ctk.CTkLabel(
-            self,
+            self.content_frame,
             text="Emitir Boletos:",
             font=FONTS["section_title"],
             text_color=COLORS["text_primary"],
@@ -65,7 +92,7 @@ class MainScreen(ctk.CTkFrame):
         subtitle.pack(anchor="w", padx=24, pady=(0, 10))
 
         self.search_entry = ctk.CTkEntry(
-            self,
+            self.content_frame,
             font=FONTS["small"],
             placeholder_text="Pesquisar por CNPJ...",
         )
@@ -73,7 +100,7 @@ class MainScreen(ctk.CTkFrame):
         self.search_entry.bind("<KeyRelease>", lambda _event: self._apply_search_filter())
 
         self.cards_frame = ctk.CTkScrollableFrame(
-            self,
+            self.content_frame,
             width=552,
             height=390,
             fg_color="transparent",
@@ -84,7 +111,7 @@ class MainScreen(ctk.CTkFrame):
         self.cards_frame.pack(fill="x", padx=24, pady=(0, 8))
         self._configure_scroll_speed()
 
-        self.actions_row = ctk.CTkFrame(self, fg_color="transparent")
+        self.actions_row = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         self.actions_row.pack(fill="x", padx=24, pady=(0, 12))
 
         self.add_button = ctk.CTkButton(
@@ -136,7 +163,7 @@ class MainScreen(ctk.CTkFrame):
         self.save_session_checkbox.pack(side="right", padx=(10, 0))
 
         self.submit_button = ctk.CTkButton(
-            self,
+            self.content_frame,
             text="Emitir Boletos",
             font=FONTS["button"],
             fg_color=COLORS["button"],
@@ -150,7 +177,7 @@ class MainScreen(ctk.CTkFrame):
         self.submit_button.pack(anchor="center", pady=(0, 8))
 
         self.status_label = ctk.CTkLabel(
-            self,
+            self.content_frame,
             text="",
             font=FONTS["small"],
             text_color=COLORS["muted"],
@@ -242,6 +269,104 @@ class MainScreen(ctk.CTkFrame):
         selected = bool(self.select_all_var.get())
         for card in self._cards:
             card.set_selected(selected)
+
+    def _toggle_history_view(self) -> None:
+        if self._showing_history:
+            self._hide_history_view()
+            return
+        self._show_history_view()
+
+    def _show_history_view(self) -> None:
+        self._showing_history = True
+        self.content_frame.pack_forget()
+        self._build_history_frame()
+        self._history_frame.pack(fill="both", expand=True)
+
+    def _hide_history_view(self) -> None:
+        if not self._showing_history:
+            return
+        self._showing_history = False
+        if self._history_frame is not None:
+            self._history_frame.pack_forget()
+        self.content_frame.pack(fill="both", expand=True)
+
+    def _build_history_frame(self) -> None:
+        if self._history_frame is not None:
+            self._history_frame.destroy()
+
+        self._history_frame = ctk.CTkFrame(self, fg_color="transparent")
+
+        title = ctk.CTkLabel(
+            self._history_frame,
+            text="Historico de Boletos",
+            font=FONTS["label"],
+            text_color=COLORS["text_primary"],
+        )
+        title.pack(anchor="w", padx=24, pady=(8, 12))
+
+        history = self._history_service.load()
+        if not history:
+            empty_label = ctk.CTkLabel(
+                self._history_frame,
+                text="Nenhum boleto salvo no historico.",
+                font=FONTS["body"],
+                text_color=COLORS["muted"],
+            )
+            empty_label.pack(anchor="center", expand=True)
+            return
+
+        table = ctk.CTkFrame(self._history_frame, fg_color=COLORS["card_bg"], corner_radius=8)
+        table.pack(fill="both", expand=True, padx=24, pady=(0, 20))
+        table.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
+        table.grid_rowconfigure(1, weight=1)
+
+        headings = ("Sindicato", "Tipo", "CNPJ", "Valor", "Senha")
+        for column, heading in enumerate(headings):
+            label = ctk.CTkLabel(
+                table,
+                text=heading,
+                font=FONTS["section_title"],
+                text_color=COLORS["text_primary"],
+                anchor="w",
+            )
+            label.grid(row=0, column=column, sticky="ew", padx=8, pady=(10, 6))
+
+        rows_frame = ctk.CTkScrollableFrame(
+            table,
+            fg_color="transparent",
+            corner_radius=0,
+            scrollbar_button_color="#9CA3AF",
+            scrollbar_button_hover_color="#6B7280",
+        )
+        rows_frame.grid(row=1, column=0, columnspan=5, sticky="nsew", padx=0, pady=(0, 10))
+        rows_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
+
+        for row_index, payload in enumerate(history):
+            values = (
+                self._sindicato_label(str(payload.get("sindicato_key", ""))),
+                str(payload.get("tipo_contribuicao", "")),
+                str(payload.get("cnpj", "")),
+                str(payload.get("valor", "")),
+                str(payload.get("senha", "")),
+            )
+            bg_color = "#F9FAFB" if row_index % 2 == 0 else "#FFFFFF"
+            for column, value in enumerate(values):
+                cell = ctk.CTkLabel(
+                    rows_frame,
+                    text=value,
+                    font=FONTS["small"],
+                    text_color=COLORS["text_secondary"],
+                    fg_color=bg_color,
+                    anchor="w",
+                    corner_radius=0,
+                )
+                cell.grid(row=row_index, column=column, sticky="ew", padx=0, pady=1, ipady=8)
+
+    def _sindicato_label(self, sindicato_key: str) -> str:
+        for key, label in self._sindicato_options:
+            if key == sindicato_key:
+                return label
+        return sindicato_key
 
     def _apply_search_filter(self) -> None:
         search_text = self.search_entry.get()
@@ -422,9 +547,15 @@ class MainScreen(ctk.CTkFrame):
             return
 
         if self.save_session_var.get():
-            total = self._history_service.save_many(payload)
+            payloads_by_key = {self._history_key_from_payload(item): item for item in payload}
+            self._pending_history_payloads = [
+                payloads_by_key.get(self._history_key_from_request(request), {})
+                for request in requests
+            ]
             self._save_last_session()
-            self.status_label.configure(text=f"Sessao salva. Historico: {total} boleto(s).")
+            self.status_label.configure(text="Sessao salva. Historico sera atualizado apos a emissao.")
+        else:
+            self._pending_history_payloads = []
 
         self.status_label.configure(text="Iniciando emissão...")
         self._set_running(True)
@@ -507,10 +638,22 @@ class MainScreen(ctk.CTkFrame):
     def _on_automation_success(self, report: ExecutionReport) -> None:
         self._set_running(False)
         summary = report.summary_dict()
+        saved_history_count = 0
+        if self._pending_history_payloads:
+            successful_payloads = [
+                payload
+                for item, payload in zip(report.items, self._pending_history_payloads)
+                if item.status == "SUCCESS" and payload
+            ]
+            if successful_payloads:
+                saved_history_count = self._history_service.save_many(successful_payloads)
+            self._pending_history_payloads = []
         text = (
             f"Concluído. Sucesso: {summary['success']} | "
             f"Erro: {summary['error']} | Total: {summary['total']}"
         )
+        if saved_history_count:
+            text = f"{text} | Historico: {saved_history_count}"
         self.status_label.configure(text=text)
 
         if summary["error"] == 0:
@@ -525,8 +668,29 @@ class MainScreen(ctk.CTkFrame):
 
     def _on_automation_error(self, exc: Exception) -> None:
         self._set_running(False)
+        self._pending_history_payloads = []
         self.status_label.configure(text="Falha inesperada ao emitir boletos.")
         messagebox.showerror("Erro inesperado", str(exc))
+
+    def _history_key_from_payload(self, payload: dict) -> tuple[str, str, str, str, str]:
+        cnpj = "".join(ch for ch in str(payload.get("cnpj", "")) if ch.isdigit())
+        return (
+            str(payload.get("sindicato_key", "")),
+            str(payload.get("tipo_contribuicao", "")),
+            cnpj,
+            str(payload.get("ano", "")),
+            str(payload.get("mes", "")),
+        )
+
+    def _history_key_from_request(self, request) -> tuple[str, str, str, str, str]:
+        cnpj = "".join(ch for ch in str(request.cnpj) if ch.isdigit())
+        return (
+            str(request.sindicato_key),
+            str(request.tipo_contribuicao.value),
+            cnpj,
+            str(request.competencia.ano),
+            str(request.competencia.mes),
+        )
 
     def _format_batch_errors(self, exc: BatchValidationError) -> str:
         lines: list[str] = []
