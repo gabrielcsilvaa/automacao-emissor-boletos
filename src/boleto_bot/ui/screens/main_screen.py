@@ -64,15 +64,13 @@ class MainScreen(ctk.CTkFrame):
         )
         subtitle.pack(anchor="w", padx=24, pady=(0, 10))
 
-        self.search_var = ctk.StringVar(value="")
-        self.search_var.trace_add("write", lambda *_args: self._apply_search_filter())
         self.search_entry = ctk.CTkEntry(
             self,
-            textvariable=self.search_var,
             font=FONTS["small"],
-            placeholder_text="Pesquisar por CNPJ no historico",
+            placeholder_text="Pesquisar por CNPJ...",
         )
         self.search_entry.pack(fill="x", padx=24, pady=(0, 10))
+        self.search_entry.bind("<KeyRelease>", lambda _event: self._apply_search_filter())
 
         self.cards_frame = ctk.CTkScrollableFrame(
             self,
@@ -246,8 +244,9 @@ class MainScreen(ctk.CTkFrame):
             card.set_selected(selected)
 
     def _apply_search_filter(self) -> None:
-        query = "".join(ch for ch in self.search_var.get() if ch.isdigit())
-        text_query = self.search_var.get().strip().lower()
+        search_text = self.search_entry.get()
+        query = "".join(ch for ch in search_text if ch.isdigit())
+        text_query = search_text.strip().lower()
 
         for card in self._cards:
             payload = card.get_payload()
