@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 import time
@@ -125,17 +124,13 @@ class SindComerciariosPortal(PortalBase):
             self._switch_to_app_boleto_context(timeout_s=45)
             self._wait(30).until(lambda d: d.execute_script("return document.readyState") == "complete")
 
-            pdf_bytes = self._print_current_page_to_pdf()
-            self._try_click_imprimir_boleto(timeout_s=5)
+            self._click_imprimir_boleto(timeout_s=30)
+            boleto_url = self._wait_for_print_url(timeout_s=10)
 
-            try:
-                boleto_url = self.driver.current_url
-            except Exception:
-                boleto_url = None
+            time.sleep(1)
 
             return PortalResult(
                 sucesso=True,
-                boleto_pdf_bytes=pdf_bytes,
                 boleto_url=boleto_url,
             )
 
@@ -144,29 +139,6 @@ class SindComerciariosPortal(PortalBase):
                 message="Falha ao abrir/gerar o boleto em PDF.",
                 details=f"url={self._safe_current_url()} handles={self._safe_window_handles()} err={e}",
             )
-
-    def _print_current_page_to_pdf(self) -> bytes:
-        try:
-            self._wait(30).until(lambda d: d.execute_script("return document.readyState") == "complete")
-            pdf = self.driver.execute_cdp_cmd(
-                "Page.printToPDF",
-                {"printBackground": True, "preferCSSPageSize": True},
-            )
-            return base64.b64decode(pdf.get("data", ""))
-        except Exception as e:
-            raise RuntimeError(
-                "Nao consegui gerar PDF da pagina atual do boleto. "
-                f"url={self._safe_current_url()} err={e}"
-            )
-
-    def _try_click_imprimir_boleto(self, timeout_s: int = 5) -> None:
-        try:
-            self._click_imprimir_boleto(timeout_s=timeout_s)
-            time.sleep(0.5)
-        except Exception:
-            # O PDF ja foi capturado da propria tela do boleto. O clique visual
-            # pode abrir/fechar a janela de impressao e invalidar o handle.
-            return
 
     def _click_imprimir_boleto(self, timeout_s: int = 30) -> None:
         xpath = '/html/body/app-root[1]/app-boleto/app-layout/div/main/div/div[2]/div[1]/app-card/div/div[3]/div[4]/app-button[1]/button'
@@ -211,6 +183,35 @@ class SindComerciariosPortal(PortalBase):
                 "Nao consegui clicar no botao Imprimir Boleto. "
                 f"url={self._safe_current_url()} xpath={xpath} err={e}"
             )
+
+    def _wait_for_print_url(self, timeout_s: int = 10) -> str | None:
+        deadline = time.time() + timeout_s
+        last_url = None
+
+        while time.time() < deadline:
+            for handle in list(self.driver.window_handles):
+                try:
+                    self.driver.switch_to.window(handle)
+                    current_url = self.driver.current_url or ""
+                except Exception:
+                    continue
+
+                if current_url:
+                    last_url = current_url
+
+                if self._is_real_boleto_print_url(current_url):
+                    return current_url
+
+            time.sleep(0.25)
+
+        return last_url
+
+    def _is_real_boleto_print_url(self, url: str) -> bool:
+        return (
+            "public-api-pay.lytex.com.br" in url
+            or "/v1/invoices/print/" in url
+            or "/invoices/print/" in url
+        )
 
     def _find_imprimir_button(self, css_button: str, xpath: str):
         buttons = self.driver.find_elements(By.CSS_SELECTOR, css_button)
